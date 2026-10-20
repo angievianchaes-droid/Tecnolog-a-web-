@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eventos · Bienestar Universitario Unitrópico</title>
+  <meta name="description" content="Consulta en un solo lugar los eventos y actividades de Bienestar Universitario de Unitrópico, en Yopal, Casanare.">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <a class="salto" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="encabezado-interno">
+      <a class="marca" href="index.html">Eventos de Bienestar<small>Unitrópico · Yopal, Casanare</small></a>
+      <nav class="nav" id="nav" aria-label="Principal"></nav>
+    </div>
+  </header>
+
+  <main id="contenido" tabindex="-1">
+    <h1>Próximos eventos</h1>
+    <p>Actividades deportivas, culturales y de bienestar para la comunidad de Unitrópico.</p>
+
+    <form class="filtros" id="filtros" role="search" aria-label="Filtrar eventos">
+      <div class="fila-campos">
+        <div class="campo">
+          <label for="q">Buscar</label>
+          <input id="q" name="q" type="search" maxlength="100" placeholder="Ej. torneo, taller, joropo">
+        </div>
+        <div class="campo">
+          <label for="categoria">Categoría</label>
+          <select id="categoria" name="categoria_id"><option value="">Todas</option></select>
+        </div>
+        <div class="campo">
+          <label for="desde">Desde el día</label>
+          <input id="desde" name="desde" type="date">
+        </div>
+        <div class="campo">
+          <button class="btn" type="submit">Buscar</button>
+          <button class="btn btn-sec" type="button" id="limpiar">Limpiar</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="resultado" aria-live="polite" aria-busy="true"></div>
+    <nav class="paginacion" id="paginacion" aria-label="Paginación" hidden>
+      <button class="btn btn-sec" type="button" id="anterior">← Anterior</button>
+      <span id="pagina-info"></span>
+      <button class="btn btn-sec" type="button" id="siguiente">Siguiente →</button>
+    </nav>
+  </main>
+
+  <footer class="pie">
+    <p>Bienestar Universitario · Unitrópico · Proyecto de Tecnologías Web 2026-B</p>
+    <p><a href="/docs">Documentación de la API</a></p>
+  </footer>
+  <script src="js/api.js"></script>
+  <script src="js/index.js"></script>
+</body>
+</html>

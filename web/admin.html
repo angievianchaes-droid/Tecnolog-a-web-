@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administración · Bienestar Unitrópico</title>
+  <meta name="description" content="Panel para gestionar eventos, categorías, lugares y usuarios de Bienestar Universitario.">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <a class="salto" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="encabezado-interno">
+      <a class="marca" href="index.html">Eventos de Bienestar<small>Unitrópico · Yopal, Casanare</small></a>
+      <nav class="nav" id="nav" aria-label="Principal"></nav>
+    </div>
+  </header>
+
+  <main id="contenido" tabindex="-1">
+    <h1>Panel de administración</h1>
+    <div id="acceso" hidden></div>
+    <div id="panel" hidden>
+      <div class="pestanas" role="group" aria-label="Elegir qué gestionar" id="pestanas"></div>
+      <div id="aviso" role="status" hidden></div>
+      <section aria-labelledby="titulo-seccion">
+        <div class="barra">
+          <h2 id="titulo-seccion"></h2>
+          <button class="btn" type="button" id="nuevo">+ Nuevo</button>
+        </div>
+        <div id="lista" aria-live="polite" aria-busy="true"></div>
+        <nav class="paginacion" id="paginacion" aria-label="Paginación" hidden>
+          <button class="btn btn-sec" type="button" id="anterior">← Anterior</button>
+          <span id="pagina-info"></span>
+          <button class="btn btn-sec" type="button" id="siguiente">Siguiente →</button>
+        </nav>
+      </section>
+    </div>
+
+    <dialog id="dlg" aria-labelledby="dlg-titulo">
+      <form id="form" novalidate>
+        <header>
+          <h2 id="dlg-titulo">Formulario</h2>
+          <button class="btn btn-sec btn-peq" type="button" id="cerrar" aria-label="Cerrar formulario">✕</button>
+        </header>
+        <div id="dlg-aviso" role="alert" hidden></div>
+        <div id="campos"></div>
+        <div class="acciones-form">
+          <button class="btn btn-sec" type="button" id="cancelar">Cancelar</button>
+          <button class="btn" type="submit" id="guardar">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <footer class="pie">
+    <p>Bienestar Universitario · Unitrópico · Proyecto de Tecnologías Web 2026-B</p>
+    <p><a href="/docs">Documentación de la API</a></p>
+  </footer>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
