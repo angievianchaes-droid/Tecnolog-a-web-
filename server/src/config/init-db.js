@@ -23,11 +23,11 @@ async function main() {
   }
 
   const hash = (p) => bcrypt.hashSync(p, 10);
-  const usuarios = [
-    ['Administrador Bienestar', 'admin@unitropico.edu.co', hash('Admin1234'), 'admin', null, null],
-    ['Coordinación de Bienestar', 'bienestar@unitropico.edu.co', hash('Bienestar1234'), 'bienestar', null, null],
-    ['Laura Sofía Rincón', 'laura.rincon@unitropico.edu.co', hash('Estudiante1234'), 'estudiante', 'Ingeniería de Sistemas', '1116660001'],
-    ['Juan David Pérez', 'juan.perez@unitropico.edu.co', hash('Estudiante1234'), 'estudiante', 'Medicina Veterinaria y Zootecnia', '1116660002'],
+    const usuarios = [
+    ['Administrador Bienestar', 'admin@unitropico.edu.co', hash(process.env.ADMIN_PASSWORD || 'Admin1234'), 'admin', null, null],
+    ['Coordinación de Bienestar', 'bienestar@unitropico.edu.co', hash(process.env.BIENESTAR_PASSWORD || 'Bienestar1234'), 'bienestar', null, null],
+    ['Laura Sofía Rincón', 'laura.rincon@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD || 'Estudiante1234'), 'estudiante', 'Ingeniería de Sistemas', '1116660001'],
+    ['Juan David Pérez', 'juan.perez@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD || 'Estudiante1234'), 'estudiante', 'Medicina Veterinaria y Zootecnia', '1116660002'],
   ];
   const ids = {};
   for (const u of usuarios) {
