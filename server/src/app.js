@@ -10,6 +10,9 @@ const { rutaNoExiste, manejadorErrores } = require('./middleware/errores');
 
 const app = express();
 
+// Detrás del proxy de Render: necesario para ver la IP real (límite de intentos de login)
+if (process.env.NODE_ENV === 'production' || process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+
 app.use(helmet({
   // Swagger UI y la página web usan scripts/estilos propios
   contentSecurityPolicy: {

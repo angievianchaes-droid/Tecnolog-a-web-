@@ -12,8 +12,8 @@ info:
 
     **Errores:** todos usan la misma forma `{ codigo, mensaje, detalles? }`.
 servers:
-  - url: http://localhost:3000/api
-    description: Servidor local
+  - url: /api
+    description: Este mismo servidor (local o publicado)
 tags:
   - name: Autenticación
   - name: Eventos
