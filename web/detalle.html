@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Detalle del evento · Bienestar Unitrópico</title>
+  <meta name="description" content="Información completa de un evento de Bienestar Universitario e inscripción.">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <a class="salto" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="encabezado-interno">
+      <a class="marca" href="index.html">Eventos de Bienestar<small>Unitrópico · Yopal, Casanare</small></a>
+      <nav class="nav" id="nav" aria-label="Principal"></nav>
+    </div>
+  </header>
+
+  <main id="contenido" tabindex="-1">
+    <p class="migas"><a href="index.html">← Volver a los eventos</a></p>
+    <div id="evento" aria-live="polite" aria-busy="true"></div>
+    <section id="inscritos" hidden aria-labelledby="titulo-inscritos" style="margin-top:2rem"></section>
+  </main>
+
+  <footer class="pie">
+    <p>Bienestar Universitario · Unitrópico · Proyecto de Tecnologías Web 2026-B</p>
+    <p><a href="/docs">Documentación de la API</a></p>
+  </footer>
+  <script src="js/api.js"></script>
+  <script src="js/detalle.js"></script>
+</body>
+</html>

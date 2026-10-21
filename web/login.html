@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingresar · Bienestar Unitrópico</title>
+  <meta name="description" content="Inicia sesión o crea tu cuenta institucional para inscribirte a los eventos de Bienestar Universitario.">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <a class="salto" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="encabezado-interno">
+      <a class="marca" href="index.html">Eventos de Bienestar<small>Unitrópico · Yopal, Casanare</small></a>
+      <nav class="nav" id="nav" aria-label="Principal"></nav>
+    </div>
+  </header>
+
+  <main id="contenido" tabindex="-1">
+    <h1>Ingresar</h1>
+    <div class="auth">
+      <section class="panel" aria-labelledby="t-login">
+        <h2 id="t-login">Ya tengo cuenta</h2>
+        <div id="aviso-login" role="alert" hidden></div>
+        <form id="form-login" novalidate>
+          <div class="campo">
+            <label for="login-correo">Correo institucional <span class="req" aria-hidden="true">*</span></label>
+            <input id="login-correo" name="correo" type="email" autocomplete="username" required>
+          </div>
+          <div class="campo">
+            <label for="login-contrasena">Contraseña <span class="req" aria-hidden="true">*</span></label>
+            <input id="login-contrasena" name="contrasena" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="btn" type="submit">Ingresar</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="t-registro">
+        <h2 id="t-registro">Crear cuenta de estudiante</h2>
+        <div id="aviso-registro" role="alert" hidden></div>
+        <form id="form-registro" novalidate>
+          <div class="campo">
+            <label for="reg-nombre">Nombre completo <span class="req" aria-hidden="true">*</span></label>
+            <input id="reg-nombre" name="nombre" type="text" autocomplete="name" required>
+          </div>
+          <div class="campo">
+            <label for="reg-correo">Correo institucional <span class="req" aria-hidden="true">*</span></label>
+            <input id="reg-correo" name="correo" type="email" autocomplete="email" required aria-describedby="reg-correo-ayuda">
+            <p class="ayuda" id="reg-correo-ayuda">Debe terminar en @unitropico.edu.co</p>
+          </div>
+          <div class="campo">
+            <label for="reg-contrasena">Contraseña <span class="req" aria-hidden="true">*</span></label>
+            <input id="reg-contrasena" name="contrasena" type="password" autocomplete="new-password" required aria-describedby="reg-pass-ayuda">
+            <p class="ayuda" id="reg-pass-ayuda">Mínimo 8 caracteres, con letras y números.</p>
+          </div>
+          <div class="campo">
+            <label for="reg-programa_academico">Programa académico</label>
+            <input id="reg-programa_academico" name="programa_academico" type="text">
+          </div>
+          <div class="campo">
+            <label for="reg-codigo_estudiantil">Código estudiantil</label>
+            <input id="reg-codigo_estudiantil" name="codigo_estudiantil" type="text" inputmode="numeric">
+          </div>
+          <button class="btn" type="submit">Crear cuenta</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <p>Bienestar Universitario · Unitrópico · Proyecto de Tecnologías Web 2026-B</p>
+    <p><a href="/docs">Documentación de la API</a></p>
+  </footer>
+  <script src="js/api.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

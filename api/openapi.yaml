@@ -1,0 +1,788 @@
+openapi: 3.1.0
+info:
+  title: API de eventos de Bienestar Universitario · Unitrópico
+  version: 0.3.0
+  description: |
+    API REST para gestionar y difundir los eventos de Bienestar Universitario de Unitrópico (Yopal, Casanare).
+
+    **Autenticación:** inicia sesión en `POST /auth/login`, copia el `token` de la respuesta y pulsa **Authorize**
+    (candado verde) para pegarlo. Se envía como `Authorization: Bearer <token>`.
+
+    **Roles:** `estudiante` (consulta e inscribe), `bienestar` (gestiona eventos, categorías y lugares) y `admin` (todo, incluidos usuarios).
+
+    **Errores:** todos usan la misma forma `{ codigo, mensaje, detalles? }`.
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor local
+tags:
+  - name: Autenticación
+  - name: Eventos
+  - name: Categorías
+  - name: Lugares
+  - name: Usuarios
+  - name: Inscripciones
+security: []
+paths:
+  /auth/registro:
+    post:
+      tags: [Autenticación]
+      summary: Crea una cuenta de estudiante
+      description: Siempre crea el rol `estudiante`. Exige correo institucional `@unitropico.edu.co`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Registro' }
+            example:
+              nombre: Laura Sofía Rincón
+              correo: laura.rincon@unitropico.edu.co
+              contrasena: Estudiante1234
+              programa_academico: Ingeniería de Sistemas
+              codigo_estudiantil: '1116660001'
+      responses:
+        '201':
+          description: Cuenta creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sesion' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Inicia sesión y devuelve un token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Login' }
+            example: { correo: admin@unitropico.edu.co, contrasena: Admin1234 }
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sesion' }
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { codigo: CREDENCIALES_INVALIDAS, mensaje: Correo o contraseña incorrectos }
+        '422': { $ref: '#/components/responses/Validacion' }
+        '429': { $ref: '#/components/responses/DemasiadosIntentos' }
+  /auth/yo:
+    get:
+      tags: [Autenticación]
+      summary: Datos de la persona con sesión iniciada
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Usuario actual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+
+  /eventos:
+    get:
+      tags: [Eventos]
+      summary: Lista eventos (público)
+      description: Sin sesión o con rol estudiante solo se ven los eventos `publicado`. Por defecto no incluye eventos ya terminados.
+      parameters:
+        - { name: q, in: query, description: Texto a buscar en título o descripción, schema: { type: string, maxLength: 100 } }
+        - { name: categoria_id, in: query, schema: { type: string, format: uuid } }
+        - { name: lugar_id, in: query, schema: { type: string, format: uuid } }
+        - name: estado
+          in: query
+          description: Solo para Bienestar y admin
+          schema: { $ref: '#/components/schemas/EstadoEvento' }
+        - { name: desde, in: query, description: Fecha mínima de inicio (AAAA-MM-DD), schema: { type: string, format: date } }
+        - { name: hasta, in: query, description: Fecha máxima de inicio (AAAA-MM-DD), schema: { type: string, format: date } }
+        - { name: incluir_pasados, in: query, schema: { type: string, enum: ['true', 'false'], default: 'false' } }
+        - { name: pagina, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limite, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 12 } }
+      responses:
+        '200':
+          description: Página de eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [datos, pagina, limite, total]
+                properties:
+                  datos: { type: array, items: { $ref: '#/components/schemas/Evento' } }
+                  pagina: { type: integer }
+                  limite: { type: integer }
+                  total: { type: integer }
+              example:
+                datos:
+                  - id: 42ea018b-7ec4-4c98-b5e4-70103d6dd059
+                    titulo: 'Taller: manejo del estrés en época de parciales'
+                    descripcion: Técnicas de respiración, organización del tiempo y hábitos de estudio, con el equipo de psicología de Bienestar.
+                    fecha_inicio: '2026-10-20T15:00:00-05:00'
+                    fecha_fin: '2026-10-20T17:00:00-05:00'
+                    cupo_maximo: 40
+                    estado: publicado
+                    imagen_url: null
+                    categoria_id: f98accb1-4365-40fe-8a17-d98149c537c7
+                    lugar_id: 144c3fce-3353-4e66-a704-fe04580a0da8
+                    categoria_nombre: Salud y bienestar
+                    categoria_color: '#0e7490'
+                    lugar_nombre: Sala de conferencias de la biblioteca
+                    inscritos: 1
+                    cupos_disponibles: 39
+                    creado_en: '2026-10-18T22:28:21-05:00'
+                    actualizado_en: '2026-10-18T22:28:21-05:00'
+                pagina: 1
+                limite: 12
+                total: 1
+        '400': { $ref: '#/components/responses/ParametrosInvalidos' }
+    post:
+      tags: [Eventos]
+      summary: Crea un evento
+      security: [{ bearerAuth: [] }]
+      description: 'Rol: `bienestar` o `admin`. Reglas: fecha de fin posterior al inicio, inicio no en el pasado, cupo no mayor a la capacidad del lugar, categoría y lugar existentes.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventoEntrada' }
+            example:
+              titulo: Festival del Joropo y la cultura llanera
+              descripcion: Muestra de danza, música llanera y gastronomía regional con grupos de la comunidad universitaria.
+              fecha_inicio: '2026-11-20T18:00:00-05:00'
+              fecha_fin: '2026-11-20T22:00:00-05:00'
+              cupo_maximo: 300
+              estado: publicado
+              categoria_id: 0b6c9d2e-5a47-4f9e-8f64-2f7d0b1c3a11
+              lugar_id: 7d2e41aa-9c3b-4a61-b0d5-5e8f1c2b9a22
+      responses:
+        '201':
+          description: Evento creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '422': { $ref: '#/components/responses/Validacion' }
+  /eventos/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    get:
+      tags: [Eventos]
+      summary: Detalle de un evento (público)
+      description: Con sesión incluye `mi_inscripcion`. Los borradores solo los ve Bienestar/admin.
+      responses:
+        '200':
+          description: Evento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '400': { $ref: '#/components/responses/IdInvalido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Eventos]
+      summary: Actualiza un evento (reemplazo completo)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventoEntrada' }
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '400': { $ref: '#/components/responses/IdInvalido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Eventos]
+      summary: Elimina un evento
+      description: Falla con 409 si tiene inscripciones activas; en ese caso cámbialo a `cancelado`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Eliminado }
+        '400': { $ref: '#/components/responses/IdInvalido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /eventos/{id}/inscripciones:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    post:
+      tags: [Inscripciones]
+      summary: Inscribirme a un evento
+      description: Si el cupo está lleno queda en `en_espera`. Usa una transacción para no sobrepasar el cupo.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Inscripción creada (confirmada o en espera)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Inscripcion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    get:
+      tags: [Inscripciones]
+      summary: Lista de inscritos de un evento (Bienestar/admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Inscritos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InscritoDeEvento' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+  /eventos/{id}/inscripciones/mia:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    delete:
+      tags: [Inscripciones]
+      summary: Cancelar mi inscripción
+      description: Si había lista de espera, el primero pasa a `confirmada`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Inscripción cancelada }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+  /eventos/{id}/inscripciones/{inscripcionId}/asistencia:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+      - { name: inscripcionId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Inscripciones]
+      summary: Registrar asistencia (Bienestar/admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [asistio]
+              properties:
+                asistio: { type: boolean }
+            example: { asistio: true }
+      responses:
+        '200':
+          description: Asistencia registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Inscripcion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /categorias:
+    get:
+      tags: [Categorías]
+      summary: Lista las categorías (público)
+      responses:
+        '200':
+          description: Categorías
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Categoria' } }
+    post:
+      tags: [Categorías]
+      summary: Crea una categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoriaEntrada' }
+            example: { nombre: Deporte, descripcion: 'Torneos, entrenamientos y actividad física', color: '#1b7f3b' }
+      responses:
+        '201':
+          description: Creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Categoria' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+  /categorias/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    get:
+      tags: [Categorías]
+      summary: Detalle de una categoría
+      responses:
+        '200':
+          description: Categoría
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Categoria' }
+        '400': { $ref: '#/components/responses/IdInvalido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Categorías]
+      summary: Actualiza una categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoriaEntrada' }
+      responses:
+        '200':
+          description: Actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Categoria' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Categorías]
+      summary: Elimina una categoría (409 si tiene eventos)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Eliminada }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /lugares:
+    get:
+      tags: [Lugares]
+      summary: Lista los lugares (público)
+      responses:
+        '200':
+          description: Lugares
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Lugar' } }
+    post:
+      tags: [Lugares]
+      summary: Crea un lugar
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LugarEntrada' }
+            example: { nombre: Auditorio principal, direccion: 'Campus Unitrópico, Yopal', capacidad: 300 }
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lugar' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+  /lugares/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    get:
+      tags: [Lugares]
+      summary: Detalle de un lugar
+      responses:
+        '200':
+          description: Lugar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lugar' }
+        '400': { $ref: '#/components/responses/IdInvalido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Lugares]
+      summary: Actualiza un lugar
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LugarEntrada' }
+      responses:
+        '200':
+          description: Actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lugar' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Lugares]
+      summary: Elimina un lugar (409 si tiene eventos)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Eliminado }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Lista usuarios (solo admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: rol, in: query, schema: { $ref: '#/components/schemas/Rol' } }
+        - { name: pagina, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limite, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Página de usuarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos: { type: array, items: { $ref: '#/components/schemas/Usuario' } }
+                  pagina: { type: integer }
+                  limite: { type: integer }
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+    post:
+      tags: [Usuarios]
+      summary: Crea un usuario con cualquier rol (solo admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsuarioEntrada' }
+            example:
+              nombre: Pedro Alvarado
+              correo: pedro.alvarado@unitropico.edu.co
+              contrasena: Segura1234
+              rol: bienestar
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+  /usuarios/me/inscripciones:
+    get:
+      tags: [Inscripciones]
+      summary: Mis inscripciones activas
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Mis inscripciones
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/MiInscripcion' } }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+  /usuarios/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+    get:
+      tags: [Usuarios]
+      summary: Detalle de un usuario (solo admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Usuario
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Usuarios]
+      summary: Actualiza un usuario (solo admin; contraseña opcional)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsuarioEntrada' }
+      responses:
+        '200':
+          description: Actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Usuarios]
+      summary: Elimina un usuario (solo admin; no puede eliminarse a sí mismo)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Eliminado }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Validacion:
+      description: Datos inválidos o que incumplen reglas de negocio
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            codigo: VALIDACION
+            mensaje: Hay datos inválidos en la petición
+            detalles:
+              - { campo: titulo, mensaje: Mínimo 5 caracteres }
+              - { campo: fecha_fin, mensaje: La fecha de fin debe ser posterior a la de inicio }
+    ParametrosInvalidos:
+      description: Parámetros de consulta inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: PARAMETROS_INVALIDOS, mensaje: Los parámetros de consulta no son válidos, detalles: [{ campo: limite, mensaje: 'Number must be less than or equal to 50' }] }
+    IdInvalido:
+      description: El identificador no es un UUID
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: ID_INVALIDO, mensaje: 'El parámetro "id" debe ser un UUID válido' }
+    NoAutenticado:
+      description: Falta el token o es inválido/expirado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: NO_AUTENTICADO, mensaje: 'Debes iniciar sesión (cabecera Authorization: Bearer <token>)' }
+    SinPermiso:
+      description: El rol no tiene permiso
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: SIN_PERMISO, mensaje: Tu rol no tiene permiso para esta operación }
+    NoEncontrado:
+      description: El recurso no existe
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: NO_ENCONTRADO, mensaje: Evento no encontrado }
+    Conflicto:
+      description: Conflicto con el estado actual (duplicado, relación existente, ya inscrito…)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: DUPLICADO, mensaje: Ya existe un registro con ese valor único }
+    DemasiadosIntentos:
+      description: Límite de intentos superado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { codigo: DEMASIADOS_INTENTOS, mensaje: Demasiados intentos. Intenta de nuevo en unos minutos }
+  schemas:
+    Error:
+      type: object
+      required: [codigo, mensaje]
+      properties:
+        codigo: { type: string }
+        mensaje: { type: string }
+        detalles:
+          type: array
+          items:
+            type: object
+            properties:
+              campo: { type: string }
+              mensaje: { type: string }
+    Rol: { type: string, enum: [estudiante, bienestar, admin] }
+    EstadoEvento: { type: string, enum: [borrador, publicado, cancelado, finalizado] }
+    Registro:
+      type: object
+      required: [nombre, correo, contrasena]
+      properties:
+        nombre: { type: string, minLength: 3, maxLength: 120 }
+        correo: { type: string, format: email, pattern: '@unitropico\.edu\.co$' }
+        contrasena: { type: string, minLength: 8, maxLength: 72, description: Debe tener letras y números }
+        programa_academico: { type: [string, 'null'], maxLength: 120 }
+        codigo_estudiantil: { type: [string, 'null'], pattern: '^[0-9]{6,15}$' }
+    Login:
+      type: object
+      required: [correo, contrasena]
+      properties:
+        correo: { type: string, format: email }
+        contrasena: { type: string }
+    Sesion:
+      type: object
+      required: [token, usuario]
+      properties:
+        token: { type: string, description: JWT }
+        usuario: { $ref: '#/components/schemas/Usuario' }
+    Usuario:
+      type: object
+      required: [id, nombre, correo, rol]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        correo: { type: string, format: email }
+        rol: { $ref: '#/components/schemas/Rol' }
+        programa_academico: { type: [string, 'null'] }
+        codigo_estudiantil: { type: [string, 'null'] }
+        creado_en: { type: string, format: date-time }
+        actualizado_en: { type: string, format: date-time }
+    UsuarioEntrada:
+      type: object
+      required: [nombre, correo, rol]
+      properties:
+        nombre: { type: string, minLength: 3, maxLength: 120 }
+        correo: { type: string, format: email, pattern: '@unitropico\.edu\.co$' }
+        contrasena: { type: string, minLength: 8, maxLength: 72, description: Obligatoria al crear; opcional al editar }
+        rol: { $ref: '#/components/schemas/Rol' }
+        programa_academico: { type: [string, 'null'], maxLength: 120 }
+        codigo_estudiantil: { type: [string, 'null'], pattern: '^[0-9]{6,15}$' }
+    Categoria:
+      type: object
+      required: [id, nombre, color]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        descripcion: { type: [string, 'null'] }
+        color: { type: string, pattern: '^#[0-9a-fA-F]{6}$', example: '#1b7f3b' }
+        creado_en: { type: string, format: date-time }
+        actualizado_en: { type: string, format: date-time }
+    CategoriaEntrada:
+      type: object
+      required: [nombre]
+      properties:
+        nombre: { type: string, minLength: 3, maxLength: 60 }
+        descripcion: { type: [string, 'null'], maxLength: 300 }
+        color: { type: string, pattern: '^#[0-9a-fA-F]{6}$', default: '#2e7d32' }
+    Lugar:
+      type: object
+      required: [id, nombre]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        direccion: { type: [string, 'null'] }
+        capacidad: { type: [integer, 'null'] }
+        latitud: { type: [string, number, 'null'] }
+        longitud: { type: [string, number, 'null'] }
+        creado_en: { type: string, format: date-time }
+        actualizado_en: { type: string, format: date-time }
+    LugarEntrada:
+      type: object
+      required: [nombre]
+      properties:
+        nombre: { type: string, minLength: 3, maxLength: 100 }
+        direccion: { type: [string, 'null'], maxLength: 200 }
+        capacidad: { type: [integer, 'null'], minimum: 1, maximum: 100000 }
+        latitud: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        longitud: { type: [number, 'null'], minimum: -180, maximum: 180 }
+    Evento:
+      type: object
+      required: [id, titulo, descripcion, fecha_inicio, fecha_fin, estado, categoria_id, lugar_id]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        descripcion: { type: string }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: string, format: date-time }
+        cupo_maximo: { type: [integer, 'null'], description: null = sin límite }
+        estado: { $ref: '#/components/schemas/EstadoEvento' }
+        imagen_url: { type: [string, 'null'], format: uri }
+        categoria_id: { type: string, format: uuid }
+        lugar_id: { type: string, format: uuid }
+        creado_por: { type: [string, 'null'], format: uuid }
+        categoria_nombre: { type: string }
+        categoria_color: { type: string }
+        lugar_nombre: { type: string }
+        inscritos: { type: integer, description: Inscripciones confirmadas }
+        cupos_disponibles: { type: [integer, 'null'] }
+        mi_inscripcion:
+          description: Solo en el detalle y con sesión iniciada
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                id: { type: string, format: uuid }
+                estado: { type: string, enum: [confirmada, cancelada, en_espera] }
+        creado_en: { type: string, format: date-time }
+        actualizado_en: { type: string, format: date-time }
+    EventoEntrada:
+      type: object
+      required: [titulo, descripcion, fecha_inicio, fecha_fin, categoria_id, lugar_id]
+      properties:
+        titulo: { type: string, minLength: 5, maxLength: 150 }
+        descripcion: { type: string, minLength: 20, maxLength: 5000 }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: string, format: date-time }
+        cupo_maximo: { type: [integer, 'null'], minimum: 1, maximum: 100000 }
+        estado: { $ref: '#/components/schemas/EstadoEvento' }
+        imagen_url: { type: [string, 'null'], format: uri, pattern: '^https://', maxLength: 300 }
+        categoria_id: { type: string, format: uuid }
+        lugar_id: { type: string, format: uuid }
+    Inscripcion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        evento_id: { type: string, format: uuid }
+        usuario_id: { type: string, format: uuid }
+        estado: { type: string, enum: [confirmada, cancelada, en_espera] }
+        asistio: { type: boolean }
+        asistencia_registrada_en: { type: [string, 'null'], format: date-time }
+        creado_en: { type: string, format: date-time }
+        actualizado_en: { type: string, format: date-time }
+    InscritoDeEvento:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        estado: { type: string, enum: [confirmada, en_espera] }
+        asistio: { type: boolean }
+        asistencia_registrada_en: { type: [string, 'null'], format: date-time }
+        creado_en: { type: string, format: date-time }
+        usuario_id: { type: string, format: uuid }
+        nombre: { type: string }
+        correo: { type: string, format: email }
+        programa_academico: { type: [string, 'null'] }
+    MiInscripcion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        estado: { type: string, enum: [confirmada, en_espera] }
+        asistio: { type: boolean }
+        creado_en: { type: string, format: date-time }
+        evento_id: { type: string, format: uuid }
+        titulo: { type: string }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: string, format: date-time }
+        lugar_nombre: { type: string }
