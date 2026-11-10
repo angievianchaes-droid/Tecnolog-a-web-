@@ -154,3 +154,43 @@ Códigos usados: `200`, `201`, `204`, `400` (id o parámetros inválidos), `401`
 
 ## Uso de inteligencia artificial
 Se usó Claude (Anthropic) como apoyo para generar el código base, el contrato OpenAPI, las pruebas y la guía de despliegue. El equipo revisó y ejecutó el código y es responsable de entender cada parte.
+
+## Docker
+
+Requisitos: **Docker Desktop** (incluye Docker Compose).
+
+### Archivos
+| Archivo | Para qué sirve |
+|---|---|
+| `Dockerfile` | Construye la imagen de la app (Node 22, usuario sin privilegios, healthcheck) |
+| `compose.yaml` | Levanta la app y PostgreSQL 16, con red interna y volumen `pgdata` |
+| `.dockerignore` | Evita copiar `.env`, `node_modules` y pruebas a la imagen |
+| `.env.example` | Variables necesarias (sin valores reales) |
+
+### Levantar el proyecto
+```bash
+cp .env.example .env        # en Windows: copy .env.example .env  (y completa los valores)
+docker compose up --build -d
+docker compose ps           # app y db deben aparecer "healthy"
+docker compose logs -f app  # registros de la aplicación
+```
+Abre `http://localhost:3000` (sitio) y `http://localhost:3000/docs` (Swagger).
+Comprobación de la conexión con la base de datos: `http://localhost:3000/api/salud/bd`.
+
+Al arrancar, la app ejecuta `init-db.js`: crea las tablas si no existen y carga los datos de ejemplo **solo si la base está vacía**. Las contraseñas de los usuarios de ejemplo salen de `ADMIN_PASSWORD`, `BIENESTAR_PASSWORD` y `ESTUDIANTE_PASSWORD` del `.env`.
+
+### Prueba de persistencia
+1. Inicia sesión como administrador y crea una categoría.
+2. `docker compose down` (sin `-v`) y luego `docker compose up -d`.
+3. La categoría sigue ahí: los datos viven en el volumen `pgdata`.
+4. `docker compose down -v` **sí borra** el volumen y todos los datos.
+
+### Usar la base de Neon desde Docker (opcional)
+En `.env` define `COMPOSE_DATABASE_URL=<URL de Neon con ?sslmode=require>`. La app se conectará a Neon y el contenedor `db` quedará sin uso.
+
+### Diagnóstico rápido
+| Síntoma | Qué revisar |
+|---|---|
+| `compose` pide una variable | Falta ese valor en `.env` |
+| La app reinicia en bucle | `docker compose logs app` (suele ser `DATABASE_URL` o `JWT_SECRET`) |
+| `/api/salud/bd` responde 503 | La base no responde: `docker compose logs db` |

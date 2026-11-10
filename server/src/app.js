@@ -30,6 +30,17 @@ app.use(express.json({ limit: '100kb' }));
 
 // ---- API ----
 app.get('/api/salud', (req, res) => res.json({ estado: 'ok', hora: new Date().toISOString() }));
+// Comprueba también la conexión con la base de datos (úsalo para diagnosticar, no como Health Check de Render:
+// despertaría la base de Neon cada vez)
+app.get('/api/salud/bd', async (req, res) => {
+  try {
+    await require('./config/db').query('SELECT 1');
+    res.json({ estado: 'ok', base_de_datos: 'conectada', hora: new Date().toISOString() });
+  } catch (e) {
+    console.error('Fallo al consultar la base de datos:', e.message);
+    res.status(503).json({ codigo: 'BD_NO_DISPONIBLE', mensaje: 'No hay conexión con la base de datos' });
+  }
+});
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/categorias', require('./routes/categorias'));
 app.use('/api/lugares', require('./routes/lugares'));
