@@ -50,4 +50,4 @@ Guarda en esta carpeta las capturas con estos nombres y pégalas aquí.
    ![Swagger](09-swagger.png)
 
 
-Fecha de las pruebas: ____ / ____ / ______   Responsable: ______________________
+Fecha de las pruebas: 11 / 11 / 2026   Responsable: Angie Viancha 
