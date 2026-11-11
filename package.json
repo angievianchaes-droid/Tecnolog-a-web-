@@ -7,6 +7,7 @@
     "start": "node server/src/app.js",
     "dev": "node --watch server/src/app.js",
     "db:init": "node server/src/config/init-db.js",
+    "db:passwords": "node server/src/config/cambiar-passwords.js",
     "test": "node --test server/test/api.test.js"
   },
   "engines": {

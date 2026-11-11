@@ -25,7 +25,10 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors());
+// CORS: el sitio web y la API comparten dominio, por lo que por defecto no se habilita ningún otro origen.
+// Si algún día el frontend se publica en otro dominio, define CORS_ORIGIN=https://mi-frontend.com (varios, separados por comas).
+const origenes = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors({ origin: origenes.length ? origenes : false }));
 app.use(express.json({ limit: '100kb' }));
 
 // ---- API ----

@@ -36,7 +36,7 @@ paths:
             example:
               nombre: Laura Sofía Rincón
               correo: laura.rincon@unitropico.edu.co
-              contrasena: Estudiante1234
+              contrasena: MiClaveSegura123
               programa_academico: Ingeniería de Sistemas
               codigo_estudiantil: '1116660001'
       responses:
@@ -56,7 +56,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/Login' }
-            example: { correo: admin@unitropico.edu.co, contrasena: Admin1234 }
+            example: { correo: admin@unitropico.edu.co, contrasena: SuClaveAqui }
       responses:
         '200':
           description: Sesión iniciada
