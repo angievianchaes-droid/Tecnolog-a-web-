@@ -5,6 +5,13 @@ const assert = require('node:assert/strict');
 const app = require('../src/app');
 const pool = require('../src/config/db');
 
+// Contraseñas de las cuentas de ejemplo: salen de las variables de entorno (.env), no del código.
+const CLAVE = {
+  admin: process.env.ADMIN_PASSWORD,
+  bienestar: process.env.BIENESTAR_PASSWORD,
+  estudiante: process.env.ESTUDIANTE_PASSWORD,
+};
+
 let server, base;
 const sufijo = Date.now();
 
@@ -30,7 +37,7 @@ const futuro = (d, h = 10) => { const x = new Date(Date.now() + d * 864e5); x.se
 
 test('Autenticación', async (t) => {
   await t.test('login correcto devuelve token JWT', async () => {
-    const r = await api('POST', '/auth/login', { body: { correo: 'admin@unitropico.edu.co', contrasena: 'Admin1234' } });
+    const r = await api('POST', '/auth/login', { body: { correo: 'admin@unitropico.edu.co', contrasena: CLAVE.admin } });
     assert.equal(r.status, 200);
     assert.ok(r.data.token.split('.').length === 3);
     assert.equal(r.data.usuario.rol, 'admin');
@@ -50,9 +57,9 @@ test('Autenticación', async (t) => {
     assert.equal((await api('GET', '/usuarios')).status, 401);
     assert.equal((await api('GET', '/usuarios', { token: 'abc.def.ghi' })).status, 401);
   });
-  admin = await login('admin@unitropico.edu.co', 'Admin1234');
-  staff = await login('bienestar@unitropico.edu.co', 'Bienestar1234');
-  est = await login('laura.rincon@unitropico.edu.co', 'Estudiante1234');
+  admin = await login('admin@unitropico.edu.co', CLAVE.admin);
+  staff = await login('bienestar@unitropico.edu.co', CLAVE.bienestar);
+  est = await login('laura.rincon@unitropico.edu.co', CLAVE.estudiante);
   await t.test('estudiante no puede crear categorías → 403', async () => {
     const r = await api('POST', '/categorias', { token: est, body: { nombre: 'Prueba' } });
     assert.equal(r.status, 403);
@@ -127,7 +134,7 @@ test('CRUD eventos + validación + reglas de negocio', async () => {
   assert.equal(u.data.titulo, 'Taller de prueba (editado)');
 
   // inscripciones: cupo 2, el tercero queda en espera
-  const e2 = await login('juan.perez@unitropico.edu.co', 'Estudiante1234');
+  const e2 = await login('juan.perez@unitropico.edu.co', CLAVE.estudiante);
   const e3 = (await api('POST', '/auth/login', { body: { correo: `ana${sufijo}@unitropico.edu.co`, contrasena: 'Clave12345' } })).data.token;
   const i1 = await api('POST', `/eventos/${id}/inscripciones`, { token: est });
   const i2 = await api('POST', `/eventos/${id}/inscripciones`, { token: e2 });
@@ -161,12 +168,24 @@ test('CRUD eventos + validación + reglas de negocio', async () => {
 });
 
 test('Borradores no son visibles al público', async () => {
+  // La prueba crea su propio borrador: no depende de los datos de ejemplo ni de que nadie lo haya editado.
+  const cats = (await api('GET', '/categorias')).data;
+  const lugs = (await api('GET', '/lugares')).data;
+  const creado = await api('POST', '/eventos', { token: staff, body: {
+    titulo: `Borrador de prueba ${sufijo}`, descripcion: 'Descripción suficientemente larga para pasar la validación.',
+    fecha_inicio: futuro(40), fecha_fin: futuro(40, 12), estado: 'borrador', categoria_id: cats[0].id, lugar_id: lugs[0].id } });
+  assert.equal(creado.status, 201);
+  const id = creado.data.id;
+
   const pub = (await api('GET', '/eventos?incluir_pasados=true&limite=50')).data.datos;
   assert.ok(pub.every((e) => e.estado === 'publicado'));
+  assert.ok(!pub.some((e) => e.id === id), 'el borrador no aparece en el listado público');
   const interno = (await api('GET', '/eventos?estado=borrador', { token: staff })).data.datos;
-  assert.ok(interno.length >= 1);
-  assert.equal((await api('GET', `/eventos/${interno[0].id}`)).status, 404);
-  assert.equal((await api('GET', `/eventos/${interno[0].id}`, { token: staff })).status, 200);
+  assert.ok(interno.some((e) => e.id === id), 'el personal sí ve el borrador');
+  assert.equal((await api('GET', `/eventos/${id}`)).status, 404);
+  assert.equal((await api('GET', `/eventos/${id}`, { token: staff })).status, 200);
+
+  assert.equal((await api('DELETE', `/eventos/${id}`, { token: staff })).status, 204); // limpieza
 });
 
 test('CRUD usuarios (solo admin)', async () => {

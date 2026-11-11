@@ -42,6 +42,8 @@ API REST con **Node.js + Express + PostgreSQL**, autenticación JWT, validación
 | Base de datos PostgreSQL | Hecho |
 | Pruebas automáticas (13) | Hecho |
 | Publicado en internet (Render + Neon) | Hecho |
+| Contenerización (Dockerfile, Compose, volumen de datos) | Hecho |
+| Render ejecutando la imagen Docker | Hecho |
 | PWA y funcionamiento sin conexión (ruta C) | Pendiente |
 | Asistente con modelos de lenguaje (ruta E) | Pendiente |
 
@@ -58,7 +60,11 @@ Requisitos: **Node.js 18 o superior** (probado con 22) y **PostgreSQL 14 o super
    DATABASE_URL=postgresql://postgres:TU_CONTRASEÑA@localhost:5432/bienestar_eventos
    JWT_SECRET=una_frase_larga_y_aleatoria
    JWT_EXPIRA_EN=8h
+   ADMIN_PASSWORD=elige_una_clave_de_10_o_mas_caracteres
+   BIENESTAR_PASSWORD=elige_otra_clave_distinta
+   ESTUDIANTE_PASSWORD=elige_otra_clave_distinta_mas
 ```
+   Las tres últimas son las contraseñas de los usuarios de ejemplo. `npm run db:init` se detiene si faltan.
    `JWT_EXPIRA_EN` debe quedar sin espacios ni comillas.
 3. En la terminal, dentro de la carpeta del proyecto:
 ```bash
@@ -69,29 +75,32 @@ Requisitos: **Node.js 18 o superior** (probado con 22) y **PostgreSQL 14 o super
    En Windows PowerShell, si `npm` da un error de scripts deshabilitados: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
 4. Abre `http://localhost:3000` (sitio) y `http://localhost:3000/docs` (Swagger).
 
-**Usuarios de prueba (solo en local, tras `npm run db:init`)**
+**Usuarios de ejemplo (se crean con `npm run db:init`)**
 
-| Rol | Correo | Contraseña |
-|---|---|---|
-| Administrador | admin@unitropico.edu.co | Admin1234 |
-| Bienestar | bienestar@unitropico.edu.co | Bienestar1234 |
-| Estudiante | laura.rincon@unitropico.edu.co | Estudiante1234 |
+| Rol | Correo |
+|---|---|
+| Administrador | admin@unitropico.edu.co |
+| Bienestar | bienestar@unitropico.edu.co |
+| Estudiante | laura.rincon@unitropico.edu.co |
+| Estudiante | juan.perez@unitropico.edu.co |
 
-En la versión publicada las contraseñas son distintas y se entregan por separado.
+Sus contraseñas son las que se definan en `ADMIN_PASSWORD`, `BIENESTAR_PASSWORD` y `ESTUDIANTE_PASSWORD`; no están escritas en el repositorio. Las contraseñas de la versión publicada se entregan al docente por un canal aparte.
+
+Para cambiar las contraseñas de una base que ya existe sin borrar datos: `npm run db:passwords` (con las tres variables y `DATABASE_URL` definidas).
 
 Pruebas automáticas (CRUD, autenticación, validación y reglas de negocio): `npm test`
 
 ## Publicación en internet
-El servidor corre en **Render** (plan gratuito) y la base de datos en **Neon** (PostgreSQL gratuito). Render publica automáticamente lo que se integre a la rama `main`.
+La aplicación corre en **Render** (plan gratuito) como un servicio **Docker**: Render construye la imagen a partir del `Dockerfile` de la raíz. La base de datos está en **Neon** (PostgreSQL gratuito), por lo que los datos de la versión publicada persisten fuera del contenedor. Render publica automáticamente lo que se integre a la rama `main`. El archivo `compose.yaml` es para ejecutar el proyecto completo (app + PostgreSQL) en un computador; Render no lo usa.
 
 | Ajuste en Render | Valor |
 |---|---|
-| Build Command | `npm install` |
-| Start Command | `npm run db:init && npm start` |
+| Runtime | Docker (`./Dockerfile`) |
+| Docker Command | vacío (se usa el `CMD` del Dockerfile: crea las tablas y arranca el servidor) |
 | Health Check Path | `/api/salud` |
-| Variables de entorno | `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRA_EN`, `NODE_ENV=production`, `NODE_VERSION=22`, `ADMIN_PASSWORD`, `BIENESTAR_PASSWORD`, `ESTUDIANTE_PASSWORD` |
+| Variables de entorno | `DATABASE_URL` (Neon), `JWT_SECRET`, `JWT_EXPIRA_EN`, `ADMIN_PASSWORD`, `BIENESTAR_PASSWORD`, `ESTUDIANTE_PASSWORD` |
 
-Los valores de las variables nunca se suben al repositorio.
+Los valores de las variables nunca se suben al repositorio. HTTPS lo provee Render. Para comprobar la conexión con la base de datos: `/api/salud/bd`.
 
 Limitaciones del plan gratuito: el servidor se duerme tras 15 minutos sin visitas (la siguiente visita tarda cerca de un minuto en despertarlo) y la base de Neon se suspende tras 5 minutos de inactividad.
 
@@ -138,7 +147,11 @@ Códigos usados: `200`, `201`, `204`, `400` (id o parámetros inválidos), `401`
 - Token JWT con duración de 8 horas y control de acceso por rol.
 - Límite de intentos en el login y el registro.
 - Consultas SQL parametrizadas (sin inyección SQL) y cabeceras de seguridad (helmet).
-- El archivo `.env` está en `.gitignore`: ninguna credencial se versiona.
+- El archivo `.env` está en `.gitignore`: ninguna credencial se versiona, y en el código no hay contraseñas por defecto.
+- Las credenciales no se incluyen en la imagen Docker (`.dockerignore`); se inyectan como variables de entorno.
+- CORS deshabilitado para otros orígenes (el sitio y la API comparten dominio); se puede habilitar con `CORS_ORIGIN`.
+- La base de datos del `compose.yaml` no se publica fuera de la red interna de Docker.
+- Cierre de sesión: elimina el token del navegador. Al ser JWT sin lista de revocación, un token ya emitido sigue siendo válido hasta que expire (8 h).
 
 ## Guion para la demostración en vivo
 1. **Swagger** (`/docs`): `POST /auth/login` con el admin → copiar el `token` → botón **Authorize** → pegarlo.
@@ -151,6 +164,28 @@ Códigos usados: `200`, `201`, `204`, `400` (id o parámetros inválidos), `401`
 8. **Regla de negocio:** intentar eliminar una categoría con eventos → `409`.
 9. **Interfaz:** como estudiante, inscribirse a un evento y cancelar; como Bienestar, crear, editar y eliminar un evento en *Administración*.
 10. Mostrar `npm test` en verde.
+
+## Cómo evaluar el proyecto
+1. Abrir la versión publicada: https://bienestar-eventos.onrender.com (la primera carga puede tardar cerca de un minuto).
+2. Iniciar sesión con las cuentas de prueba que se entregan por separado (administrador, bienestar y estudiante).
+3. Seguir el guion de demostración de este README, o probar la API en `/docs`.
+4. Para ejecutarlo con Docker: sección *Docker* de este README.
+
+## Componentes que no aplican
+- **Pasarela de pagos:** el proyecto gestiona eventos gratuitos de Bienestar Universitario; no hay cobros. Se solicita al docente el criterio técnico equivalente para ese puntaje.
+- **Integraciones con servicios externos:** el sistema no consume APIs de terceros; solo usa la base de datos PostgreSQL (Neon en la versión publicada).
+- **Frontend y backend en contenedores separados:** el servidor Express sirve también el sitio web estático, por lo que un único `Dockerfile` basta para contenerizar toda la aplicación; la base de datos va en su propio contenedor en `compose.yaml`.
+
+## Dependencias y vulnerabilidades conocidas
+Revisadas con `npm audit --omit=dev`:
+
+| Paquete | Aviso | Estado |
+|---|---|---|
+| `body-parser` | Denegación de servicio (GHSA-27r3-jxmh-p828) | Corregido con `npm audit fix` (versión 2.4.0) |
+| `zod` | Consumo de memoria con colecciones muy grandes (GHSA-mrhx-c7xc-m3w5) | No se actualiza a la v4 porque cambia la API de mensajes de error usada en `validar.js`. Riesgo reducido: el servidor rechaza cuerpos de más de 100 KB (`express.json({ limit: '100kb' })`). Pendiente de migrar |
+
+## Evidencias
+Capturas de las pruebas funcionales, de persistencia, de roles y de despliegue: carpeta [`docs/evidencias`](docs/evidencias).
 
 ## Uso de inteligencia artificial
 Se usó Claude (Anthropic) como apoyo para generar el código base, el contrato OpenAPI, las pruebas y la guía de despliegue. El equipo revisó y ejecutó el código y es responsable de entender cada parte.

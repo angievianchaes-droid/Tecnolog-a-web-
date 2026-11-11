@@ -22,12 +22,22 @@ async function main() {
     return pool.end();
   }
 
+  // Las contraseñas de los usuarios de ejemplo se leen SIEMPRE de variables de entorno:
+  // en el código no hay ninguna contraseña por defecto.
+  const requeridas = ['ADMIN_PASSWORD', 'BIENESTAR_PASSWORD', 'ESTUDIANTE_PASSWORD'];
+  const faltan = requeridas.filter((v) => !process.env[v]);
+  if (faltan.length) {
+    console.error(`Faltan variables de entorno para crear los usuarios de ejemplo: ${faltan.join(', ')}`);
+    await pool.end();
+    process.exit(1);
+  }
+
   const hash = (p) => bcrypt.hashSync(p, 10);
     const usuarios = [
-    ['Administrador Bienestar', 'admin@unitropico.edu.co', hash(process.env.ADMIN_PASSWORD || 'Admin1234'), 'admin', null, null],
-    ['Coordinación de Bienestar', 'bienestar@unitropico.edu.co', hash(process.env.BIENESTAR_PASSWORD || 'Bienestar1234'), 'bienestar', null, null],
-    ['Laura Sofía Rincón', 'laura.rincon@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD || 'Estudiante1234'), 'estudiante', 'Ingeniería de Sistemas', '1116660001'],
-    ['Juan David Pérez', 'juan.perez@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD || 'Estudiante1234'), 'estudiante', 'Medicina Veterinaria y Zootecnia', '1116660002'],
+    ['Administrador Bienestar', 'admin@unitropico.edu.co', hash(process.env.ADMIN_PASSWORD), 'admin', null, null],
+    ['Coordinación de Bienestar', 'bienestar@unitropico.edu.co', hash(process.env.BIENESTAR_PASSWORD), 'bienestar', null, null],
+    ['Laura Sofía Rincón', 'laura.rincon@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD), 'estudiante', 'Ingeniería de Sistemas', '1116660001'],
+    ['Juan David Pérez', 'juan.perez@unitropico.edu.co', hash(process.env.ESTUDIANTE_PASSWORD), 'estudiante', 'Medicina Veterinaria y Zootecnia', '1116660002'],
   ];
   const ids = {};
   for (const u of usuarios) {
@@ -92,10 +102,8 @@ async function main() {
     [evId[0], ids['laura.rincon@unitropico.edu.co'], evId[3], ids['juan.perez@unitropico.edu.co']]);
 
   console.log('Base de datos lista con datos de ejemplo.');
-  console.log('Usuarios de prueba:');
-  console.log('  admin@unitropico.edu.co        / Admin1234');
-  console.log('  bienestar@unitropico.edu.co    / Bienestar1234');
-  console.log('  laura.rincon@unitropico.edu.co / Estudiante1234');
+  console.log('Usuarios de ejemplo creados (las contraseñas son las de las variables de entorno):');
+  console.log('  admin@unitropico.edu.co, bienestar@unitropico.edu.co, laura.rincon@unitropico.edu.co, juan.perez@unitropico.edu.co');
   await pool.end();
 }
 
