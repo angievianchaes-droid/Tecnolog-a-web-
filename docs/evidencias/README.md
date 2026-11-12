@@ -1,6 +1,5 @@
 # Evidencias de pruebas — Entrega 4
 
-Guarda en esta carpeta las capturas con estos nombres y pégalas aquí.
 
 | # | Prueba | Archivo | Qué debe verse |
 |---|---|---|---|
